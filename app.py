@@ -5,12 +5,13 @@ import os
 from datetime import datetime
 from functools import wraps
 
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_login import (
     LoginManager, login_user, logout_user, login_required, current_user
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from api import api_bp
 from models import db, User, StaffProfile, Trek, Booking, Payment, AuditLog
 from services import (
     RuleError, TREK_STATUSES, STAFF_STATUSES,
@@ -32,6 +33,8 @@ db.init_app(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to continue.'
+
+app.register_blueprint(api_bp)
 
 
 @login_manager.user_loader
@@ -527,51 +530,6 @@ def profile_delete():
     logout_user()
     flash('Your account has been permanently deleted.', 'info')
     return redirect(url_for('login'))
-
-
-def trek_to_dict(t):
-    return {
-        'id': t.id,
-        'name': t.name,
-        'location': t.location,
-        'difficulty': t.difficulty,
-        'duration': t.duration,
-        'available_slots': t.available_slots,
-        'total_slots': t.total_slots,
-        'status': t.status,
-        'start_date': t.start_date.isoformat(),
-        'end_date': t.end_date.isoformat(),
-        'assigned_staff': t.staff.name if t.staff else None,
-    }
-
-
-@app.route('/api/treks', methods=['GET'])
-def api_treks():
-    treks = Trek.query.filter_by(status='Open').order_by(Trek.start_date).all()
-    return jsonify([trek_to_dict(t) for t in treks])
-
-
-@app.route('/api/treks/<int:trek_id>', methods=['GET'])
-def api_trek_detail(trek_id):
-    trek = Trek.query.get_or_404(trek_id)
-    data = trek_to_dict(trek)
-    data['description'] = trek.description
-    return jsonify(data)
-
-
-@app.route('/api/bookings', methods=['GET'])
-@login_required
-def api_bookings():
-    if current_user.role != 'trekker':
-        return jsonify({'error': 'Only trekker accounts have bookings.'}), 403
-    bookings = Booking.query.filter_by(user_id=current_user.id).order_by(Booking.booking_date.desc()).all()
-    return jsonify([{
-        'id': b.id,
-        'trek_id': b.trek_id,
-        'trek_name': b.trek.name,
-        'booking_date': b.booking_date.isoformat(),
-        'status': b.status,
-    } for b in bookings])
 
 
 if __name__ == '__main__':
