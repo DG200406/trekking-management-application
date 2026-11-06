@@ -1,0 +1,497 @@
+openapi: 3.0.3
+info:
+  title: Trekking Management API
+  version: 2.0.0
+  description: |
+    JSON API for the Trekking Management application.
+
+    14 operations: 2 public read-only endpoints and 12 role-restricted endpoints
+    (6 admin, 3 staff, 3 trekker).
+
+    Authentication uses the same Flask session cookie as the website. Log in through
+    the site (`POST /login`) and send the resulting `session` cookie. Anonymous calls
+    to a restricted endpoint get 401. A signed-in account with the wrong role, or one
+    that is pending approval or blacklisted, gets 403.
+servers:
+  - url: http://127.0.0.1:5000
+tags:
+  - name: Public
+  - name: Admin
+  - name: Staff
+  - name: Trekker
+
+paths:
+  /api/treks:
+    get:
+      tags: [Public]
+      summary: List open treks
+      operationId: listOpenTreks
+      responses:
+        '200':
+          description: Treks whose status is Open, soonest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Trek'}
+
+  /api/treks/{trek_id}:
+    get:
+      tags: [Public]
+      summary: Get one open trek
+      description: Only Open treks are visible here. Any other status returns 404.
+      operationId: getOpenTrek
+      parameters:
+        - {$ref: '#/components/parameters/TrekId'}
+      responses:
+        '200':
+          description: Trek detail
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TrekDetail'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/admin/stats:
+    get:
+      tags: [Admin]
+      summary: Platform totals
+      operationId: adminStats
+      security: [{sessionCookie: []}]
+      responses:
+        '200':
+          description: Counts
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Stats'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+
+  /api/admin/users:
+    get:
+      tags: [Admin]
+      summary: List staff and trekker accounts
+      description: The admin account itself is never listed.
+      operationId: adminListUsers
+      security: [{sessionCookie: []}]
+      parameters:
+        - name: role
+          in: query
+          schema: {type: string, enum: [staff, trekker]}
+        - name: status
+          in: query
+          schema: {type: string, enum: [active, pending, blacklisted]}
+      responses:
+        '200':
+          description: Accounts ordered by name
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/User'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+
+  /api/admin/treks:
+    post:
+      tags: [Admin]
+      summary: Create a trek
+      description: New treks start as Pending with every slot free.
+      operationId: adminCreateTrek
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/NewTrek'}
+      responses:
+        '201':
+          description: The created trek
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Trek'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+
+  /api/admin/treks/{trek_id}:
+    patch:
+      tags: [Admin]
+      summary: Update a trek
+      description: |
+        Send only the fields to change. Resizing `total_slots` keeps the seats already
+        booked. Setting `assigned_staff_id` moves a Pending trek to Approved. Setting
+        `status` to Completed also completes every active booking on the trek.
+      operationId: adminUpdateTrek
+      security: [{sessionCookie: []}]
+      parameters:
+        - {$ref: '#/components/parameters/TrekId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AdminTrekPatch'}
+      responses:
+        '200':
+          description: The updated trek
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Trek'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    delete:
+      tags: [Admin]
+      summary: Delete a trek
+      description: Also deletes the trek's bookings and their payments.
+      operationId: adminDeleteTrek
+      security: [{sessionCookie: []}]
+      parameters:
+        - {$ref: '#/components/parameters/TrekId'}
+      responses:
+        '204': {description: Deleted}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/admin/users/{user_id}/status:
+    patch:
+      tags: [Admin]
+      summary: Approve, blacklist or reinstate a staff or trekker account
+      description: |
+        `active` approves a pending account or reinstates a blacklisted one.
+        `blacklisted` blocks the account immediately. The admin account cannot be targeted (404).
+      operationId: adminSetUserStatus
+      security: [{sessionCookie: []}]
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: {type: integer}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AccountStatusPatch'}
+      responses:
+        '200':
+          description: The updated account
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/staff/treks:
+    get:
+      tags: [Staff]
+      summary: Treks assigned to me
+      operationId: staffListTreks
+      security: [{sessionCookie: []}]
+      responses:
+        '200':
+          description: Only the treks assigned to the signed-in staff member
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/StaffTrek'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+
+  /api/staff/treks/{trek_id}:
+    patch:
+      tags: [Staff]
+      summary: Update slots or status of one of my treks
+      description: |
+        Staff can set the status to Approved, Open, Closed or Completed, but not Pending.
+        A trek assigned to someone else returns 404.
+      operationId: staffUpdateTrek
+      security: [{sessionCookie: []}]
+      parameters:
+        - {$ref: '#/components/parameters/TrekId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/StaffTrekPatch'}
+      responses:
+        '200':
+          description: The updated trek
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Trek'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/staff/treks/{trek_id}/participants:
+    get:
+      tags: [Staff]
+      summary: Bookings on one of my treks
+      operationId: staffTrekParticipants
+      security: [{sessionCookie: []}]
+      parameters:
+        - {$ref: '#/components/parameters/TrekId'}
+      responses:
+        '200':
+          description: Every booking on the trek, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Participant'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/bookings:
+    get:
+      tags: [Trekker]
+      summary: My bookings
+      operationId: myBookings
+      security: [{sessionCookie: []}]
+      responses:
+        '200':
+          description: The signed-in trekker's bookings, newest first, with payment state
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Booking'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Trekker]
+      summary: Book a trek
+      description: |
+        Succeeds only if the trek is Open, has a free slot, and the trekker has no active
+        booking on it. A simulated payment is recorded and one slot is taken.
+      operationId: createBooking
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/BookingCreate'}
+      responses:
+        '201':
+          description: The new booking
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Booking'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+
+  /api/bookings/{booking_id}/cancel:
+    patch:
+      tags: [Trekker]
+      summary: Cancel one of my bookings
+      description: Gives the slot back and marks the payment Refunded.
+      operationId: cancelBooking
+      security: [{sessionCookie: []}]
+      parameters:
+        - name: booking_id
+          in: path
+          required: true
+          schema: {type: integer}
+      responses:
+        '200':
+          description: The cancelled booking
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Booking'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session
+      description: Flask session cookie set by logging in on the website.
+
+  parameters:
+    TrekId:
+      name: trek_id
+      in: path
+      required: true
+      schema: {type: integer}
+
+  responses:
+    BadRequest:
+      description: Invalid input
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Unauthorized:
+      description: Not signed in
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Forbidden:
+      description: Wrong role, or the account is pending approval or blacklisted
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    NotFound:
+      description: No such record, or it is not visible to this account
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Conflict:
+      description: A booking rule blocked the request
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: {type: string}
+
+    Trek:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        location: {type: string}
+        difficulty: {type: string, enum: [Easy, Moderate, Hard]}
+        duration: {type: integer, description: Days}
+        price: {type: integer, description: Rupees per person}
+        available_slots: {type: integer}
+        total_slots: {type: integer}
+        status: {type: string, enum: [Pending, Approved, Open, Closed, Completed]}
+        start_date: {type: string, format: date}
+        end_date: {type: string, format: date}
+        assigned_staff: {type: string, nullable: true, description: Name of the assigned staff member}
+
+    TrekDetail:
+      allOf:
+        - $ref: '#/components/schemas/Trek'
+        - type: object
+          properties:
+            description: {type: string, nullable: true}
+
+    StaffTrek:
+      allOf:
+        - $ref: '#/components/schemas/Trek'
+        - type: object
+          properties:
+            participant_count: {type: integer, description: Active (Booked) bookings}
+
+    NewTrek:
+      type: object
+      additionalProperties: false
+      required: [name, location, difficulty, duration, total_slots, start_date, end_date]
+      properties:
+        name: {type: string, minLength: 1}
+        location: {type: string, minLength: 1}
+        difficulty: {type: string, enum: [Easy, Moderate, Hard]}
+        duration: {type: integer, minimum: 1}
+        total_slots: {type: integer, minimum: 1}
+        price: {type: integer, minimum: 0, default: 0}
+        start_date: {type: string, format: date}
+        end_date: {type: string, format: date}
+        description: {type: string}
+
+    AdminTrekPatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: {type: string, minLength: 1}
+        location: {type: string, minLength: 1}
+        difficulty: {type: string, enum: [Easy, Moderate, Hard]}
+        duration: {type: integer, minimum: 1}
+        total_slots: {type: integer, minimum: 1}
+        price: {type: integer, minimum: 0}
+        start_date: {type: string, format: date}
+        end_date: {type: string, format: date}
+        description: {type: string}
+        status: {type: string, enum: [Pending, Approved, Open, Closed, Completed]}
+        assigned_staff_id: {type: integer, nullable: true, description: 'An active staff account, or null to unassign'}
+
+    StaffTrekPatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        total_slots: {type: integer, minimum: 1}
+        status: {type: string, enum: [Approved, Open, Closed, Completed]}
+
+    Stats:
+      type: object
+      properties:
+        treks: {type: integer}
+        trekkers: {type: integer}
+        staff: {type: integer}
+        bookings: {type: integer}
+        pending_staff: {type: integer}
+
+    User:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        email: {type: string}
+        phone: {type: string, nullable: true}
+        role: {type: string, enum: [staff, trekker]}
+        status: {type: string, enum: [active, pending, blacklisted]}
+
+    AccountStatusPatch:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: {type: string, enum: [active, blacklisted]}
+
+    Payment:
+      type: object
+      nullable: true
+      description: Simulated payment record. No payment gateway is involved.
+      properties:
+        amount: {type: integer, description: Rupees}
+        status: {type: string, enum: [Paid, Refunded]}
+
+    Booking:
+      type: object
+      properties:
+        id: {type: integer}
+        trek_id: {type: integer}
+        trek_name: {type: string}
+        booking_date: {type: string, format: date-time}
+        status: {type: string, enum: [Booked, Cancelled, Completed]}
+        payment: {$ref: '#/components/schemas/Payment'}
+
+    BookingCreate:
+      type: object
+      additionalProperties: false
+      required: [trek_id]
+      properties:
+        trek_id: {type: integer}
+
+    Participant:
+      type: object
+      properties:
+        booking_id: {type: integer}
+        status: {type: string, enum: [Booked, Cancelled, Completed]}
+        booking_date: {type: string, format: date-time}
+        trekker:
+          type: object
+          properties:
+            id: {type: integer}
+            name: {type: string}
+            phone: {type: string, nullable: true}
