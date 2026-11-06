@@ -33,6 +33,10 @@
                         <input type="number" min="1" class="form-control" name="total_slots" value="{{ trek.total_slots if trek else '' }}" required>
                     </div>
                     <div class="col-md-6">
+                        <label class="form-label">Price per person (&#8377;)</label>
+                        <input type="number" min="0" class="form-control" name="price" value="{{ trek.price if trek else 0 }}" required>
+                    </div>
+                    <div class="col-md-6">
                         <label class="form-label">Start Date</label>
                         <input type="date" class="form-control" name="start_date" value="{{ trek.start_date if trek else '' }}" required>
                     </div>

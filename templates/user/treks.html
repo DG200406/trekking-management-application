@@ -29,7 +29,7 @@
     <div class="col-md-4">
         <div class="card p-3 h-100">
             <h5>{{ t.name }}</h5>
-            <p class="text-muted-small mb-1">{{ t.location }} &middot; {{ t.duration }} days</p>
+            <p class="text-muted-small mb-1">{{ t.location }} &middot; {{ t.duration }} days &middot; {% if t.price %}&#8377;{{ '{:,}'.format(t.price) }}{% else %}Free{% endif %}</p>
             <span class="badge badge-difficulty-{{ t.difficulty }} mb-2" style="width: fit-content;">{{ t.difficulty }}</span>
             <p class="mb-1">{{ t.description or '' }}</p>
             <p class="text-muted-small mb-2">{{ t.start_date.strftime('%d %b') }} - {{ t.end_date.strftime('%d %b %Y') }} &middot; {{ t.available_slots }}/{{ t.total_slots }} slots left</p>

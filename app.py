@@ -11,7 +11,12 @@ from flask_login import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from models import db, User, Trek, Booking
+from models import db, User, StaffProfile, Trek, Booking, Payment, AuditLog
+from services import (
+    RuleError, TREK_STATUSES, STAFF_STATUSES,
+    create_booking, cancel_booking, set_total_slots, set_trek_status,
+    assign_staff, delete_trek,
+)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get('TREK_DB_PATH') or os.path.join(BASE_DIR, 'trekking.db')
@@ -203,6 +208,7 @@ def admin_add_trek():
             location=request.form['location'].strip(),
             difficulty=request.form['difficulty'],
             duration=int(request.form['duration']),
+            price=int(request.form.get('price') or 0),
             total_slots=int(request.form['total_slots']),
             available_slots=int(request.form['total_slots']),
             status='Pending',
@@ -222,22 +228,23 @@ def admin_add_trek():
 def admin_edit_trek(trek_id):
     trek = Trek.query.get_or_404(trek_id)
     if request.method == 'POST':
+        status = request.form['status']
+        if status not in TREK_STATUSES:
+            flash('Invalid trek status.', 'danger')
+            return redirect(url_for('admin_edit_trek', trek_id=trek.id))
+
         trek.name = request.form['name'].strip()
         trek.location = request.form['location'].strip()
         trek.difficulty = request.form['difficulty']
         trek.duration = int(request.form['duration'])
+        if request.form.get('price'):
+            trek.price = int(request.form['price'])
 
-        new_total = int(request.form['total_slots'])
-        booked = trek.total_slots - trek.available_slots
-        trek.available_slots = max(new_total - booked, 0)
-        trek.total_slots = new_total
-
-        trek.status = request.form['status']
+        set_total_slots(trek, int(request.form['total_slots']))
+        set_trek_status(trek, status)
         trek.start_date = datetime.strptime(request.form['start_date'], '%Y-%m-%d').date()
         trek.end_date = datetime.strptime(request.form['end_date'], '%Y-%m-%d').date()
         trek.description = request.form.get('description', '').strip()
-        if trek.status == 'Completed':
-            Booking.query.filter_by(trek_id=trek.id, status='Booked').update({'status': 'Completed'})
         db.session.commit()
         flash('Trek updated.', 'success')
         return redirect(url_for('admin_treks'))
@@ -248,8 +255,7 @@ def admin_edit_trek(trek_id):
 @role_required('admin')
 def admin_delete_trek(trek_id):
     trek = Trek.query.get_or_404(trek_id)
-    Booking.query.filter_by(trek_id=trek.id).delete()
-    db.session.delete(trek)
+    delete_trek(trek)
     db.session.commit()
     flash('Trek deleted.', 'info')
     return redirect(url_for('admin_treks'))
@@ -262,9 +268,11 @@ def admin_assign_staff(trek_id):
     approved_staff = User.query.filter_by(role='staff', status='active').all()
     if request.method == 'POST':
         staff_id = request.form.get('staff_id')
-        trek.assigned_staff_id = int(staff_id) if staff_id else None
-        if trek.assigned_staff_id and trek.status == 'Pending':
-            trek.status = 'Approved'
+        try:
+            assign_staff(trek, int(staff_id) if staff_id else None)
+        except RuleError as e:
+            flash(e.message, e.level)
+            return redirect(url_for('admin_assign_staff', trek_id=trek.id))
         db.session.commit()
         flash('Staff assignment updated.', 'success')
         return redirect(url_for('admin_treks'))
@@ -358,13 +366,12 @@ def staff_dashboard():
 def staff_update_trek(trek_id):
     trek = Trek.query.filter_by(id=trek_id, assigned_staff_id=current_user.id).first_or_404()
     if request.method == 'POST':
-        new_total = int(request.form['total_slots'])
-        booked = trek.total_slots - trek.available_slots
-        trek.available_slots = max(new_total - booked, 0)
-        trek.total_slots = new_total
-        trek.status = request.form['status']
-        if trek.status == 'Completed':
-            Booking.query.filter_by(trek_id=trek.id, status='Booked').update({'status': 'Completed'})
+        status = request.form['status']
+        if status not in STAFF_STATUSES:
+            flash('Invalid trek status.', 'danger')
+            return redirect(url_for('staff_update_trek', trek_id=trek.id))
+        set_total_slots(trek, int(request.form['total_slots']))
+        set_trek_status(trek, status)
         db.session.commit()
         flash('Trek details updated.', 'success')
         return redirect(url_for('staff_dashboard'))
@@ -416,23 +423,11 @@ def user_treks():
 @role_required('trekker')
 def user_book_trek(trek_id):
     trek = Trek.query.get_or_404(trek_id)
-
-    if trek.status != 'Open':
-        flash('This trek is not open for booking.', 'danger')
+    try:
+        create_booking(current_user, trek)
+    except RuleError as e:
+        flash(e.message, e.level)
         return redirect(url_for('user_treks'))
-    if trek.available_slots <= 0:
-        flash('No slots available for this trek.', 'danger')
-        return redirect(url_for('user_treks'))
-
-    existing = Booking.query.filter_by(user_id=current_user.id, trek_id=trek.id, status='Booked').first()
-    if existing:
-        flash('You have already booked this trek.', 'warning')
-        return redirect(url_for('user_treks'))
-
-    booking = Booking(user_id=current_user.id, trek_id=trek.id, status='Booked')
-    trek.available_slots -= 1
-    db.session.add(booking)
-    db.session.commit()
     flash(f'Trek "{trek.name}" booked successfully!', 'success')
     return redirect(url_for('user_bookings'))
 
@@ -449,9 +444,7 @@ def user_bookings():
 def user_cancel_booking(booking_id):
     booking = Booking.query.filter_by(id=booking_id, user_id=current_user.id).first_or_404()
     if booking.status == 'Booked':
-        booking.status = 'Cancelled'
-        booking.trek.available_slots += 1
-        db.session.commit()
+        cancel_booking(booking)
         flash('Booking cancelled.', 'info')
     return redirect(url_for('user_bookings'))
 
@@ -490,9 +483,16 @@ def profile_delete():
     user = current_user._get_current_object()
 
     if user.role == 'trekker':
-        Booking.query.filter_by(user_id=user.id).delete()
+        for b in Booking.query.filter_by(user_id=user.id):
+            if b.status == 'Booked':
+                b.trek.available_slots += 1
+            if b.payment:
+                db.session.delete(b.payment)
+            db.session.delete(b)
     elif user.role == 'staff':
         Trek.query.filter_by(assigned_staff_id=user.id).update({'assigned_staff_id': None})
+        if user.staff_profile:
+            db.session.delete(user.staff_profile)
 
     db.session.delete(user)
     db.session.commit()

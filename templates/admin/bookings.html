@@ -6,7 +6,7 @@
 <div class="card p-3">
     <table class="table table-dark table-hover align-middle">
         <thead>
-            <tr><th>ID</th><th>Trekker</th><th>Trek</th><th>Booking Date</th><th>Status</th></tr>
+            <tr><th>ID</th><th>Trekker</th><th>Trek</th><th>Booking Date</th><th>Status</th><th>Payment</th></tr>
         </thead>
         <tbody>
             {% for b in bookings %}
@@ -20,9 +20,15 @@
                     {% elif b.status == 'Cancelled' %}<span class="badge text-bg-danger">Cancelled</span>
                     {% else %}<span class="badge text-bg-primary">Completed</span>{% endif %}
                 </td>
+                <td>
+                    {% if not b.payment %}—
+                    {% elif b.payment.status == 'Refunded' %}Refunded
+                    {% elif b.payment.amount %}Paid &#8377;{{ '{:,}'.format(b.payment.amount) }}
+                    {% else %}Free{% endif %}
+                </td>
             </tr>
             {% else %}
-            <tr><td colspan="5" class="text-center text-muted-small">No bookings yet.</td></tr>
+            <tr><td colspan="6" class="text-center text-muted-small">No bookings yet.</td></tr>
             {% endfor %}
         </tbody>
     </table>
