@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}My Dashboard{% endblock %}
+{% block page_title %}My Dashboard{% endblock %}
+{% block content %}
+<h3 class="mb-3">Welcome, {{ current_user.name }}</h3>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4 col-6">
+        <div class="stat-card">
+            <div class="stat-number">{{ open_treks|length }}</div>
+            <div class="text-muted-small">Open Treks (preview)</div>
+        </div>
+    </div>
+    <div class="col-md-4 col-6">
+        <div class="stat-card">
+            <div class="stat-number">{{ my_bookings|selectattr('status', 'equalto', 'Booked')|list|length }}</div>
+            <div class="text-muted-small">Active Bookings</div>
+        </div>
+    </div>
+    <div class="col-md-4 col-6">
+        <div class="stat-card">
+            <div class="stat-number">{{ my_bookings|length }}</div>
+            <div class="text-muted-small">Total Booking History</div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h5>Available Treks</h5>
+    <a href="{{ url_for('user_treks') }}" class="btn btn-sm btn-outline-light">Browse All</a>
+</div>
+<div class="row g-3">
+    {% for t in open_treks %}
+    <div class="col-md-4">
+        <div class="card p-3 h-100">
+            <h6>{{ t.name }}</h6>
+            <p class="text-muted-small mb-1">{{ t.location }}</p>
+            <span class="badge badge-difficulty-{{ t.difficulty }} mb-2">{{ t.difficulty }}</span>
+            <p class="text-muted-small mb-0">{{ t.available_slots }} slots left</p>
+        </div>
+    </div>
+    {% else %}
+    <p class="text-muted-small">No open treks right now. Check back later!</p>
+    {% endfor %}
+</div>
+{% endblock %}

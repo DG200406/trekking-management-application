@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Participants{% endblock %}
+{% block page_title %}Participants{% endblock %}
+{% block content %}
+<h3 class="mb-1">Participants for {{ trek.name }}</h3>
+<p class="text-muted-small mb-3">{{ trek.location }}</p>
+<div class="card p-3">
+    <table class="table table-dark table-hover align-middle">
+        <thead>
+            <tr><th>Booking ID</th><th>Trekker</th><th>Phone</th><th>Booking Date</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            {% for b in bookings %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ b.trekker.name }}</td>
+                <td>{{ b.trekker.phone or '—' }}</td>
+                <td>{{ b.booking_date.strftime('%d %b %Y') }}</td>
+                <td>{{ b.status }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted-small">No one has booked this trek yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<a href="{{ url_for('staff_dashboard') }}" class="btn btn-outline-light mt-3">Back</a>
+{% endblock %}

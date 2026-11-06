@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+trekking.db
+.claude/
+venv/
+.env

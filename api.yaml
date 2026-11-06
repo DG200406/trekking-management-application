@@ -1,0 +1,115 @@
+openapi: 3.0.3
+info:
+  title: Trekking Management Application API
+  description: Read-only JSON resource endpoints for treks and bookings.
+  version: 1.0.0
+servers:
+  - url: http://127.0.0.1:5000
+paths:
+  /api/treks:
+    get:
+      summary: List all open treks
+      responses:
+        '200':
+          description: A JSON array of open treks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Trek'
+
+  /api/treks/{trek_id}:
+    get:
+      summary: Get details of a single trek
+      parameters:
+        - name: trek_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Trek detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrekDetail'
+        '404':
+          description: Trek not found
+
+  /api/bookings:
+    get:
+      summary: List the logged-in trekker's bookings
+      description: Requires an authenticated session with role "trekker".
+      responses:
+        '200':
+          description: A JSON array of the current user's bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+        '302':
+          description: Redirected to login (not authenticated)
+        '403':
+          description: Logged in but not a trekker account
+
+components:
+  schemas:
+    Trek:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        location:
+          type: string
+        difficulty:
+          type: string
+          enum: [Easy, Moderate, Hard]
+        duration:
+          type: integer
+          description: Duration in days
+        available_slots:
+          type: integer
+        total_slots:
+          type: integer
+        status:
+          type: string
+          enum: [Pending, Approved, Open, Closed, Completed]
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        assigned_staff:
+          type: string
+          nullable: true
+
+    TrekDetail:
+      allOf:
+        - $ref: '#/components/schemas/Trek'
+        - type: object
+          properties:
+            description:
+              type: string
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: integer
+        trek_id:
+          type: integer
+        trek_name:
+          type: string
+        booking_date:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [Booked, Cancelled, Completed]

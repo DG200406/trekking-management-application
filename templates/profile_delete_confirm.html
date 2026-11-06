@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Delete Account{% endblock %}
+{% block page_title %}Delete Account{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card p-4 border-danger">
+            <h3 class="mb-3 text-danger">Delete Your Account</h3>
+            <div class="alert alert-danger">
+                <strong>Warning: this action is permanent and cannot be undone.</strong>
+                <ul class="mb-0 mt-2">
+                    <li>Your profile ({{ current_user.name }}, {{ current_user.email }}) will be permanently removed.</li>
+                    {% if current_user.role == 'trekker' %}
+                    <li>All of your bookings and trekking history will be deleted.</li>
+                    {% elif current_user.role == 'staff' %}
+                    <li>You will be unassigned from any treks you currently manage.</li>
+                    {% endif %}
+                    <li>You will be logged out immediately and this login will no longer work.</li>
+                </ul>
+            </div>
+            <form method="POST" action="{{ url_for('profile_delete') }}">
+                <button type="submit" class="btn btn-danger w-100">Yes, permanently delete my account</button>
+            </form>
+            <a href="{{ url_for('profile') }}" class="btn btn-outline-light w-100 mt-2">Cancel</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

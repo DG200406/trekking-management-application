@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Update Trek{% endblock %}
+{% block page_title %}Update Trek{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card p-4">
+            <h3 class="mb-1">{{ trek.name }}</h3>
+            <p class="text-muted-small">{{ trek.location }} &middot; {{ trek.duration }} days</p>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label">Total Slots</label>
+                    <input type="number" min="{{ trek.total_slots - trek.available_slots }}" class="form-control" name="total_slots" value="{{ trek.total_slots }}" required>
+                    <div class="form-text">{{ trek.total_slots - trek.available_slots }} already booked.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Trek Status</label>
+                    <select class="form-select" name="status" required>
+                        {% for s in ['Approved', 'Open', 'Closed', 'Completed'] %}
+                        <option value="{{ s }}" {% if trek.status == s %}selected{% endif %}>{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-success">Save Changes</button>
+                <a href="{{ url_for('staff_dashboard') }}" class="btn btn-outline-light">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

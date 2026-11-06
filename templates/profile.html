@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}My Profile{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card p-4">
+            <h3 class="mb-3">My Profile</h3>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" class="form-control" name="name" value="{{ current_user.name }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" value="{{ current_user.email }}" disabled>
+                    <div class="form-text">Email cannot be changed.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Role</label>
+                    <input type="text" class="form-control" value="{{ current_user.role|capitalize }}" disabled>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Phone</label>
+                    <input type="text" class="form-control" name="phone" value="{{ current_user.phone or '' }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">New Password</label>
+                    <div class="input-group">
+                        <input type="password" class="form-control" name="password" id="profilePassword" placeholder="Leave blank to keep current password">
+                        <button class="btn btn-outline-secondary" type="button" data-toggle-password="profilePassword" aria-label="Show password">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-success">Save Changes</button>
+            </form>
+        </div>
+
+        {% if current_user.role != 'admin' %}
+        <div class="card p-4 mt-3 border-danger">
+            <h5 class="text-danger mb-1">Danger Zone</h5>
+            <p class="text-muted-small mb-3">Permanently delete your account and all associated data.</p>
+            <a href="{{ url_for('profile_delete_confirm') }}" class="btn btn-outline-danger">Delete My Account</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

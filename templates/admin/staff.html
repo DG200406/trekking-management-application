@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}Manage Staff{% endblock %}
+{% block page_title %}Manage Trek Staff{% endblock %}
+{% block content %}
+<h3 class="mb-3">Manage Trek Staff</h3>
+<div class="card p-3">
+    <table class="table table-dark table-hover align-middle">
+        <thead>
+            <tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for s in staff_list %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ s.name }}</td>
+                <td>{{ s.email }}</td>
+                <td>{{ s.phone or '—' }}</td>
+                <td>
+                    {% if s.status == 'active' %}<span class="badge text-bg-success">Active</span>
+                    {% elif s.status == 'pending' %}<span class="badge text-bg-secondary">Pending</span>
+                    {% else %}<span class="badge text-bg-danger">Blacklisted</span>{% endif %}
+                </td>
+                <td class="text-nowrap">
+                    {% if s.status == 'pending' %}
+                    <form method="POST" action="{{ url_for('admin_approve_staff', user_id=s.id) }}" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                    </form>
+                    {% endif %}
+                    {% if s.status != 'blacklisted' %}
+                    <form method="POST" action="{{ url_for('admin_blacklist_staff', user_id=s.id) }}" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Blacklist</button>
+                    </form>
+                    {% else %}
+                    <form method="POST" action="{{ url_for('admin_reinstate_staff', user_id=s.id) }}" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-success">Reinstate</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted-small">No staff registered yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

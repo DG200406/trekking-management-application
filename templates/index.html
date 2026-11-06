@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Trekking Management{% endblock %}
+{% block guest_content %}
+<div class="hero">
+    <h1 class="display-5 fw-bold">Trekking Management Application</h1>
+    <p class="lead text-muted-small">Manage treks, staff, and bookings for your trekking group.</p>
+    <div class="mt-4">
+        <a href="{{ url_for('login') }}" class="btn btn-success btn-lg me-2">Login</a>
+        <a href="{{ url_for('register') }}" class="btn btn-outline-light btn-lg">Register</a>
+    </div>
+</div>
+{% endblock %}

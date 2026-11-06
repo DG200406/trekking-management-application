@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Manage Treks{% endblock %}
+{% block page_title %}Manage Treks{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Manage Treks</h3>
+    <a href="{{ url_for('admin_add_trek') }}" class="btn btn-success">+ Add Trek</a>
+</div>
+
+<div class="card p-3">
+    <table class="table table-dark table-hover table-sm align-middle">
+        <thead>
+            <tr>
+                <th>ID</th><th>Name</th><th>Location</th><th>Difficulty</th>
+                <th>Slots</th><th>Staff</th><th>Status</th><th>Dates</th><th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in treks %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ t.name }}</td>
+                <td>{{ t.location }}</td>
+                <td><span class="badge badge-difficulty-{{ t.difficulty }}">{{ t.difficulty }}</span></td>
+                <td>{{ t.available_slots }}/{{ t.total_slots }}</td>
+                <td>{{ t.staff.name if t.staff else '—' }}</td>
+                <td><span class="badge badge-status-{{ t.status }}">{{ t.status }}</span></td>
+                <td>{{ t.start_date.strftime('%d %b') }} - {{ t.end_date.strftime('%d %b %Y') }}</td>
+                <td class="text-end">
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Actions">
+                            <i class="bi bi-three-dots"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{{ url_for('admin_edit_trek', trek_id=t.id) }}">Edit</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_assign_staff', trek_id=t.id) }}">Assign Staff</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form method="POST" action="{{ url_for('admin_delete_trek', trek_id=t.id) }}">
+                                    <button type="submit" class="dropdown-item text-danger">Delete</button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="text-center text-muted-small">No treks yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

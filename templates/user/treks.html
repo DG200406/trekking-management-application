@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Browse Treks{% endblock %}
+{% block page_title %}Browse Treks{% endblock %}
+{% block content %}
+<h3 class="mb-3">Browse Open Treks</h3>
+
+<form method="GET" class="row g-2 mb-4">
+    <div class="col-md-4">
+        <input type="text" class="form-control" name="q" value="{{ q }}" placeholder="Search by trek name">
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" name="difficulty">
+            <option value="">All Difficulties</option>
+            {% for level in ['Easy', 'Moderate', 'Hard'] %}
+            <option value="{{ level }}" {% if difficulty == level %}selected{% endif %}>{{ level }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3">
+        <input type="text" class="form-control" name="location" value="{{ location }}" placeholder="Location">
+    </div>
+    <div class="col-md-2">
+        <button type="submit" class="btn btn-success w-100">Filter</button>
+    </div>
+</form>
+
+<div class="row g-3">
+    {% for t in treks %}
+    <div class="col-md-4">
+        <div class="card p-3 h-100">
+            <h5>{{ t.name }}</h5>
+            <p class="text-muted-small mb-1">{{ t.location }} &middot; {{ t.duration }} days</p>
+            <span class="badge badge-difficulty-{{ t.difficulty }} mb-2" style="width: fit-content;">{{ t.difficulty }}</span>
+            <p class="mb-1">{{ t.description or '' }}</p>
+            <p class="text-muted-small mb-2">{{ t.start_date.strftime('%d %b') }} - {{ t.end_date.strftime('%d %b %Y') }} &middot; {{ t.available_slots }}/{{ t.total_slots }} slots left</p>
+            {% if t.id in booked_trek_ids %}
+                <button class="btn btn-secondary" disabled>Already Booked</button>
+            {% elif t.available_slots <= 0 %}
+                <button class="btn btn-secondary" disabled>Full</button>
+            {% else %}
+                <form method="POST" action="{{ url_for('user_book_trek', trek_id=t.id) }}">
+                    <button type="submit" class="btn btn-success w-100">Book Now</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <p class="text-muted-small">No treks match your search.</p>
+    {% endfor %}
+</div>
+{% endblock %}

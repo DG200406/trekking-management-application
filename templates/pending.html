@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Pending Approval{% endblock %}
+{% block page_title %}Pending Approval{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 text-center">
+        <div class="card p-5">
+            <h3>Account Pending Approval</h3>
+            <p class="text-muted-small mt-3">
+                Hi {{ current_user.name }}, your trek staff account is awaiting approval from the admin.
+                You'll be able to access your dashboard once approved.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
