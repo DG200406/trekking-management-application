@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
 trekking.db
+.pytest_cache/
 .claude/
 venv/
+.venv/
 .env

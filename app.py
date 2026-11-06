@@ -12,7 +12,7 @@ from flask_login import (
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from api import api_bp
-from models import db, User, StaffProfile, Trek, Booking, Payment, AuditLog
+from models import db, User, StaffProfile, Trek, Booking, AuditLog
 from services import (
     RuleError, TREK_STATUSES, STAFF_STATUSES,
     create_booking, cancel_booking, add_trek, apply_trek_fields,
@@ -24,9 +24,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get('TREK_DB_PATH') or os.path.join(BASE_DIR, 'trekking.db')
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'trekking-management-secret-key'
+# set SECRET_KEY in the environment for anything beyond local demos
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-only-secret-change-me')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + DB_PATH
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 db.init_app(app)
 
@@ -230,7 +232,7 @@ def admin_add_trek():
 @app.route('/admin/treks/edit/<int:trek_id>', methods=['GET', 'POST'])
 @role_required('admin')
 def admin_edit_trek(trek_id):
-    trek = Trek.query.get_or_404(trek_id)
+    trek = db.get_or_404(Trek, trek_id)
     if request.method == 'POST':
         status = request.form['status']
         if status not in TREK_STATUSES:
@@ -261,7 +263,7 @@ def admin_edit_trek(trek_id):
 @app.route('/admin/treks/delete/<int:trek_id>', methods=['POST'])
 @role_required('admin')
 def admin_delete_trek(trek_id):
-    trek = Trek.query.get_or_404(trek_id)
+    trek = db.get_or_404(Trek, trek_id)
     delete_trek(trek)
     db.session.commit()
     flash('Trek deleted.', 'info')
@@ -271,7 +273,7 @@ def admin_delete_trek(trek_id):
 @app.route('/admin/treks/assign/<int:trek_id>', methods=['GET', 'POST'])
 @role_required('admin')
 def admin_assign_staff(trek_id):
-    trek = Trek.query.get_or_404(trek_id)
+    trek = db.get_or_404(Trek, trek_id)
     approved_staff = User.query.filter_by(role='staff', status='active').all()
     if request.method == 'POST':
         staff_id = request.form.get('staff_id')
@@ -436,7 +438,7 @@ def user_treks():
 @app.route('/user/book/<int:trek_id>', methods=['POST'])
 @role_required('trekker')
 def user_book_trek(trek_id):
-    trek = Trek.query.get_or_404(trek_id)
+    trek = db.get_or_404(Trek, trek_id)
     try:
         create_booking(current_user, trek)
     except RuleError as e:
@@ -533,4 +535,4 @@ def profile_delete():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=os.environ.get('FLASK_DEBUG') == '1')
