@@ -4,6 +4,10 @@ A web app for running guided treks. Three roles share one codebase: **Admin** cr
 
 **Stack:** Flask, Flask-SQLAlchemy, SQLite, Flask-Login, Jinja2, Bootstrap 5.
 
+## Background
+
+This project started as my coursework for **Modern Application Development I** in the IIT Madras BS in Data Science program. The first commit in this repository is that original course version: three tables, three roles and a three-endpoint read-only API. Everything after it was added later, outside the course: payments, staff profiles, the audit log, the role-restricted JSON API with its OpenAPI spec, the shared rules layer and the test suite.
+
 ## What each role can do
 
 **Admin**
