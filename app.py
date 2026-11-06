@@ -14,8 +14,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, User, StaffProfile, Trek, Booking, Payment, AuditLog
 from services import (
     RuleError, TREK_STATUSES, STAFF_STATUSES,
-    create_booking, cancel_booking, set_total_slots, set_trek_status,
-    assign_staff, delete_trek,
+    create_booking, cancel_booking, add_trek, apply_trek_fields,
+    set_total_slots, set_trek_status, assign_staff, delete_trek,
+    set_account_status,
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -216,7 +217,7 @@ def admin_add_trek():
             end_date=datetime.strptime(request.form['end_date'], '%Y-%m-%d').date(),
             description=request.form.get('description', '').strip(),
         )
-        db.session.add(trek)
+        add_trek(trek)
         db.session.commit()
         flash('Trek created.', 'success')
         return redirect(url_for('admin_treks'))
@@ -233,18 +234,21 @@ def admin_edit_trek(trek_id):
             flash('Invalid trek status.', 'danger')
             return redirect(url_for('admin_edit_trek', trek_id=trek.id))
 
-        trek.name = request.form['name'].strip()
-        trek.location = request.form['location'].strip()
-        trek.difficulty = request.form['difficulty']
-        trek.duration = int(request.form['duration'])
+        values = {
+            'name': request.form['name'].strip(),
+            'location': request.form['location'].strip(),
+            'difficulty': request.form['difficulty'],
+            'duration': int(request.form['duration']),
+            'start_date': datetime.strptime(request.form['start_date'], '%Y-%m-%d').date(),
+            'end_date': datetime.strptime(request.form['end_date'], '%Y-%m-%d').date(),
+            'description': request.form.get('description', '').strip(),
+        }
         if request.form.get('price'):
-            trek.price = int(request.form['price'])
+            values['price'] = int(request.form['price'])
 
+        apply_trek_fields(trek, values)
         set_total_slots(trek, int(request.form['total_slots']))
         set_trek_status(trek, status)
-        trek.start_date = datetime.strptime(request.form['start_date'], '%Y-%m-%d').date()
-        trek.end_date = datetime.strptime(request.form['end_date'], '%Y-%m-%d').date()
-        trek.description = request.form.get('description', '').strip()
         db.session.commit()
         flash('Trek updated.', 'success')
         return redirect(url_for('admin_treks'))
@@ -290,7 +294,7 @@ def admin_staff():
 @role_required('admin')
 def admin_approve_staff(user_id):
     staff = User.query.filter_by(id=user_id, role='staff').first_or_404()
-    staff.status = 'active'
+    set_account_status(staff, 'active')
     db.session.commit()
     flash(f'{staff.name} approved.', 'success')
     return redirect(url_for('admin_staff'))
@@ -300,7 +304,7 @@ def admin_approve_staff(user_id):
 @role_required('admin')
 def admin_blacklist_staff(user_id):
     staff = User.query.filter_by(id=user_id, role='staff').first_or_404()
-    staff.status = 'blacklisted'
+    set_account_status(staff, 'blacklisted')
     db.session.commit()
     flash(f'{staff.name} blacklisted.', 'warning')
     return redirect(url_for('admin_staff'))
@@ -310,7 +314,7 @@ def admin_blacklist_staff(user_id):
 @role_required('admin')
 def admin_reinstate_staff(user_id):
     staff = User.query.filter_by(id=user_id, role='staff').first_or_404()
-    staff.status = 'active'
+    set_account_status(staff, 'active')
     db.session.commit()
     flash(f'{staff.name} reinstated.', 'success')
     return redirect(url_for('admin_staff'))
@@ -327,7 +331,7 @@ def admin_users():
 @role_required('admin')
 def admin_blacklist_user(user_id):
     user = User.query.filter_by(id=user_id, role='trekker').first_or_404()
-    user.status = 'blacklisted'
+    set_account_status(user, 'blacklisted')
     db.session.commit()
     flash(f'{user.name} blacklisted.', 'warning')
     return redirect(url_for('admin_users'))
@@ -337,7 +341,7 @@ def admin_blacklist_user(user_id):
 @role_required('admin')
 def admin_reinstate_user(user_id):
     user = User.query.filter_by(id=user_id, role='trekker').first_or_404()
-    user.status = 'active'
+    set_account_status(user, 'active')
     db.session.commit()
     flash(f'{user.name} reinstated.', 'success')
     return redirect(url_for('admin_users'))
@@ -348,6 +352,13 @@ def admin_reinstate_user(user_id):
 def admin_bookings():
     bookings = Booking.query.order_by(Booking.booking_date.desc()).all()
     return render_template('admin/bookings.html', bookings=bookings)
+
+
+@app.route('/admin/audit')
+@role_required('admin')
+def admin_audit():
+    entries = AuditLog.query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).limit(200).all()
+    return render_template('admin/audit.html', entries=entries)
 
 
 @app.route('/staff/dashboard')
@@ -453,6 +464,21 @@ def user_cancel_booking(booking_id):
 @login_required
 def profile():
     if request.method == 'POST':
+        if current_user.role == 'staff':
+            try:
+                years = int(request.form.get('experience_years') or 0)
+            except ValueError:
+                years = -1
+            if years < 0:
+                flash('Experience must be a whole number of years.', 'danger')
+                return redirect(url_for('profile'))
+            sp = current_user.staff_profile or StaffProfile(user_id=current_user.id)
+            sp.experience_years = years
+            sp.certifications = request.form.get('certifications', '').strip()
+            sp.emergency_contact = request.form.get('emergency_contact', '').strip()
+            sp.bio = request.form.get('bio', '').strip()
+            db.session.add(sp)
+
         current_user.name = request.form['name'].strip()
         current_user.phone = request.form.get('phone', '').strip()
         new_password = request.form.get('password', '').strip()
@@ -494,6 +520,8 @@ def profile_delete():
         if user.staff_profile:
             db.session.delete(user.staff_profile)
 
+    # keep the audit entries, just detach them from the deleted account
+    AuditLog.query.filter_by(actor_id=user.id).update({'actor_id': None})
     db.session.delete(user)
     db.session.commit()
     logout_user()

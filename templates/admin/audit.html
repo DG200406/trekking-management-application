@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Activity Log{% endblock %}
+{% block page_title %}Activity Log{% endblock %}
+{% block content %}
+<h3 class="mb-1">Activity Log</h3>
+<p class="text-muted-small mb-3">Privileged actions by admin and staff, newest first (last 200).</p>
+<div class="card p-3">
+    <table class="table table-dark table-hover table-sm align-middle">
+        <thead>
+            <tr><th>When</th><th>Who</th><th>Action</th><th>Details</th></tr>
+        </thead>
+        <tbody>
+            {% for e in entries %}
+            <tr>
+                <td class="text-nowrap">{{ e.created_at.strftime('%d %b %Y %H:%M') }}</td>
+                <td class="text-nowrap">{{ e.actor_name }} <span class="text-muted-small">({{ e.actor_role }})</span></td>
+                <td><code>{{ e.action }}</code></td>
+                <td>{{ e.detail or '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted-small">Nothing recorded yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -24,6 +24,27 @@
                     <label class="form-label">Phone</label>
                     <input type="text" class="form-control" name="phone" value="{{ current_user.phone or '' }}">
                 </div>
+                {% if current_user.role == 'staff' %}
+                {% set sp = current_user.staff_profile %}
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Years of experience</label>
+                        <input type="number" min="0" class="form-control" name="experience_years" value="{{ sp.experience_years if sp else 0 }}">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label">Certifications</label>
+                        <input type="text" class="form-control" name="certifications" value="{{ sp.certifications or '' if sp else '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Emergency contact</label>
+                        <input type="text" class="form-control" name="emergency_contact" value="{{ sp.emergency_contact or '' if sp else '' }}">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Bio</label>
+                        <textarea class="form-control" name="bio" rows="3">{{ sp.bio or '' if sp else '' }}</textarea>
+                    </div>
+                </div>
+                {% endif %}
                 <div class="mb-3">
                     <label class="form-label">New Password</label>
                     <div class="input-group">
