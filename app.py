@@ -14,10 +14,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, User, Trek, Booking
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.environ.get('TREK_DB_PATH') or os.path.join(BASE_DIR, 'trekking.db')
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'trekking-management-secret-key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'trekking.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + DB_PATH
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
